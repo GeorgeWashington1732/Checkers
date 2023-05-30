@@ -1,4 +1,5 @@
 //API Link - https://javadoc.io/doc/com.badlogicgames.gdx/gdx/latest/index.html
+//API Link - https://javadoc.io/doc/com.badlogicgames.gdx/gdx/latest/index.html
 import com.badlogic.gdx.ApplicationAdapter; 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
@@ -41,15 +42,15 @@ extends ApplicationAdapter
     private Vector2 mouseVector;
     private float mouseX;
     private float mouseY;
-    private Circle temp; //find intersection of mouse and rect
+    private Circle mouseLoc; //find intersection of mouse and rect
 
-    public Pieces[][] whitePieces; //2D array for white pieces
-    public Circle[][] whiteCircles; //corresponding array
+    private Pieces[][] whitePieces; //2D array for white pieces
 
-    public Pieces[][] blackPieces; //2D array for black pieces
-    public Circle[][] blackCircles; //corresponding array
+    private Pieces[][] blackPieces; //2D array for black pieces
 
-    private boolean isCalled;
+    private int renderCtr;
+    private int playerToggle; 
+    private boolean isFinished;
 
     private SpriteBatch batch;
     private GlyphLayout layout; 
@@ -59,6 +60,8 @@ extends ApplicationAdapter
 
     @Override//called once when we start the game
     public void create(){
+        Gdx.graphics.setContinuousRendering(false);
+
         camera = new OrthographicCamera(); 
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera); 
         renderer = new ShapeRenderer();
@@ -87,14 +90,15 @@ extends ApplicationAdapter
         mouseVector = new Vector2();
         mouseX = 0;
         mouseY = 0;
-        temp = new Circle(0,0,.1f); //find intersection of mouse and rect 
+        mouseLoc = new Circle(0,0,.1f); //find intersection of mouse and rect 
 
         whitePieces = new Pieces[8][8];
-        whiteCircles = new Circle[8][8];
         blackPieces = new Pieces[8][8];
-        blackCircles = new Circle[8][8];
 
-        //CheckLogic class contains all logic for checkers
+        renderCtr=0;
+        playerToggle = 0;
+        isFinished =false;
+
         gamestate = GameState.MENU;        
     }
 
@@ -103,27 +107,38 @@ extends ApplicationAdapter
         //these 2 lines clear the screen and set the background color every FRAME. 
         Gdx.gl.glClearColor(0, 0, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        batch.setProjectionMatrix(viewport.getCamera().combined);           
-        CheckLogic game = new CheckLogic();
 
         if(gamestate == GameState.GAME)
         {
-            System.out.println("Calling Methods");
+            drawBoard();//draws checkerboard
+            if(playerToggle%2==0)
+            {     
 
-            whiteLogic();
+                whiteLogic();
+
+            }
+            else
+            {
+
+                blackLogic();
+
+            }
         }
 
         if(Gdx.input.isKeyJustPressed(Keys.ESCAPE))
             gamestate=GameState.MENU;
+
         if(gamestate == GameState.MENU)
         {
+            drawMenu();
+
             updateMouseLoc();
 
-            if(Intersector.overlaps(temp,button1) && Gdx.input.justTouched())
+            if(Intersector.overlaps(mouseLoc,button1) && Gdx.input.justTouched())
             {
                 gamestate = GameState.JUSTSTARTED; 
             }
-            if(Intersector.overlaps(temp,button2) && Gdx.input.justTouched())
+            if(Intersector.overlaps(mouseLoc,button2) && Gdx.input.justTouched())
             {
                 gamestate = GameState.INSTRUCTIONS;
             }
@@ -131,17 +146,18 @@ extends ApplicationAdapter
 
         if(gamestate == GameState.JUSTSTARTED)
         {
-            fillBoard();
-            gamestate = GameState.GAME;
+            if(renderCtr<1)
+            {
+                fillBoard();
+                renderCtr++;//prevents board being constructed >1x
+            }
+            if(!Gdx.input.isTouched())
+                gamestate = GameState.GAME;
         }
-        if(gamestate==GameState.MENU)
-            drawMenu();
+
         if(gamestate == GameState.INSTRUCTIONS)
             drawInstructions();
-        if(game.whiteHasPieces(whitePieces) && game.blackHasPieces(blackPieces))
-        {   
-            drawBoard();//draws checkerboard
-        }
+
     }
 
     public void updateMouseLoc()
@@ -151,9 +167,9 @@ extends ApplicationAdapter
         mouseVector.set(Gdx.input.getX(), Gdx.input.getY());//doesn't match world coords
 
         mouseY=viewport.unproject(mouseVector).y;
-        temp.setX(mouseX);
-        temp.setY(mouseY);
-        // System.out.println("x: " + temp.x + "\ty: " + temp.y + "\tbx: " + temp.x + "\ty:" + temp.y);
+        mouseLoc.setX(mouseX);
+        mouseLoc.setY(mouseY);
+        // System.out.println("x: " + mouseLoc.x + "\ty: " + mouseLoc.y + "\tbx: " + mouseLoc.x + "\ty:" + mouseLoc.y);
     }
 
     private void drawMenu()
@@ -166,7 +182,7 @@ extends ApplicationAdapter
         batch.draw(images.get(5),WORLD_WIDTH/2-images.get(5).getWidth()/2, WORLD_HEIGHT/2, 
             images.get(5).getWidth(), images.get(5).getHeight());//"Checkers"
 
-        if(Intersector.overlaps(temp, button1))
+        if(Intersector.overlaps(mouseLoc, button1))
         {
             batch.draw(images.get(0),button1.x, button1.y-50, button1.width,button1.height);           
         }
@@ -175,7 +191,7 @@ extends ApplicationAdapter
             batch.draw(images.get(1),button1.x, button1.y-50, button1.width,button1.height);           
         }
 
-        if(Intersector.overlaps(temp, button2))
+        if(Intersector.overlaps(mouseLoc, button2))
         {
             batch.draw(images.get(4),button2.x, button2.y, button2.width,button2.height);
         }
@@ -242,149 +258,161 @@ extends ApplicationAdapter
         {
             for(int c = 0; c<8; c++)
             {             
-                if(board[r][c].getColor().equals(Color.BLACK) && r<2)
+                if(board[r][c].getColor().equals(Color.BLACK) && r<3)
                 {
                     whitePieces[r][c] = new Pieces(15+80*c, //x location depends on the column
                         WORLD_HEIGHT - 65 - r*80,images.get(7));
-                    whiteCircles[r][c] = new Circle(15+80*c, WORLD_HEIGHT - 65 - r*80, 80);
+                    // System.out.println("White Piece at " + r +" "+ c +" constructed");
                 }
 
-                if(board[r][c].getColor().equals(Color.BLACK) && r>=6)
+                if(board[r][c].getColor().equals(Color.BLACK) && r>=5)
                 {
                     blackPieces[r][c] = new Pieces(15+80*c, //x location depends on the column
                         WORLD_HEIGHT - 65 - r*80,images.get(8));
-                    blackCircles[r][c] = new Circle(15+80*c, WORLD_HEIGHT - 65 - r*80, 80);
+                    // System.out.println("Black Piece at " +r+" "+c+" constructed");
                 }
             }
         }
-        System.out.println("Board Filled");
     }
 
     public void whiteLogic()
     {
-        int timer;
-        updateMouseLoc();
         System.out.println("WhiteLogic Called");
-        Pieces clicked = null;
-        int r = 0;
-        int c = 0;
-
-        for(timer=0; timer<1800; timer++) 
+        Pieces clicked;
+        int oldMx;
+        int oldMy;
+        if(isFinished==false)
         {
-            for(r = 0; r<whitePieces.length; r++)
-                for(c = 0; c<whitePieces[0].length; c++)
-                    if(whiteCircles[r][c]!=null && Intersector.overlaps(temp, whiteCircles[r][c]) && Gdx.input.isTouched())
+            clicked = null;
+            oldMx = (int)mouseX;
+            oldMy = (int)mouseY;
+        }
+        else
+        {
+            clicked=whitePieces[(int)(640-mouseY)/80][(int)mouseX/80];
+            oldMx = (int)mouseX;
+            oldMy = (int)mouseY;
+        }
+
+        System.out.println("isFinished: "+isFinished);
+        if(!isFinished)
+            for(int r=0; r<board.length; r++)
+            {
+                for(int c = 0; c<board[0].length; c++)
+                {
+                    updateMouseLoc();
+
+                    if(whitePieces[r][c]!=null && Gdx.input.isTouched() &&
+                    Intersector.overlaps(mouseLoc,whitePieces[r][c]))
                     {
+                        System.out.println("If statement called");
+                        isFinished = true;
+                        System.out.println("Clicked");
                         clicked = whitePieces[r][c];
-                        clicked.set(mouseX, mouseY, 85);
 
-                        if(r+2<board.length && c+2<board[0].length &&
-                        blackPieces[r+1][c+1]!=null && whitePieces[r+2][c+2]==null)
-                        {
-                            board[r+2][c+2].changeColor(Color.YELLOW);
-                        }
-                        if(r+1<board.length && c+1<board[0].length &&
-                        blackPieces[r+1][c+1]==null && whitePieces[r+1][c+1]==null)
-                        {
-                            board[r+1][c+1].changeColor(Color.YELLOW);
-                        }
-                        if(r-2>board.length && c+2<board[0].length &&
-                        blackPieces[r-1][c+1]!=null && whitePieces[r+2][c+2]==null)
-                        {
-                            board[r-2][c+2].changeColor(Color.YELLOW);
-                        }
-                        if(r-1>board.length && c+1<board[0].length &&
-                        blackPieces[r-1][c+1]==null && whitePieces[r-1][c+1]==null)
-                        {
-                            board[r-1][c+1].changeColor(Color.YELLOW);
-                        }
-                    }
-        }
-        if((!Gdx.input.isTouched()) && board[(int)mouseX/80][(int)mouseY/80].equals(Color.YELLOW))
+                        break;
+                    } 
+                }
+                if(isFinished)
+                {
+                    System.out.println("If statement finished");
+                    break;
+                }
+            }
+
+        System.out.println("isFinished: "+isFinished);
+        if(isFinished)
         {
-            updateMouseLoc();
-            Circle temp = whiteCircles[r][c];
-            whitePieces[r][c] = null;
-            whiteCircles[r][c] = null;
-            whitePieces[(int)mouseY/80][(int)mouseX/80] = clicked;
-            whiteCircles[(int)mouseY/80][(int)mouseX/80] = temp;
-            clicked.set(15+80*mouseX,WORLD_HEIGHT - 65 - mouseY*80,50);
-            if(blackPieces[(int)mouseX/80-1][(int)mouseY/80-1]!=null)
+            System.out.println("Finishing");
+
+            if(Gdx.input.isTouched() && clicked!=null)
             {
-                blackPieces[r-1][c-1]=null;
-                blackCircles[r-1][c-1]=null;
+                updateMouseLoc();
+                System.out.println("Moving");
+                clicked.set(mouseX,mouseY,50);
             }
-            else if(blackPieces[(int)mouseX/80+1][(int)mouseY/80-1]!=null)
+            else
             {
-                blackPieces[r-1][c-1]=null;
-                blackCircles[r-1][c-1]=null;
+                if(clicked!=null)
+                {
+                    updateMouseLoc();
+                    whitePieces[(int)(640-mouseY)/80][(int)mouseX/80]=clicked;               
+                    System.out.println("Set at " +(int)(640-mouseY)/80 + " " + (int)mouseX/80);
+                    isFinished = false;
+                    playerToggle++;
+                }
+                if(clicked ==null)
+                    clicked = new Pieces(mouseX,mouseY,images.get(7));
             }
         }
-        blackLogic();      
+
     }
 
     public void blackLogic()
     {
-        int timer;
-        updateMouseLoc();
         System.out.println("BlackLogic Called");
-        Pieces clicked = null;
-        int r = 0;
-        int c = 0;
-        for(timer = 0; timer<1800; timer++)
+        Pieces clicked;
+        int oldMx;
+        int oldMy;
+        if(isFinished==false)
         {
-            for(r = 0; r<blackPieces.length; r++)
-                for(c = 0; c<blackPieces[0].length; c++)
-                    if(blackCircles[r][c]!=null && Intersector.overlaps(temp, blackCircles[r][c]) && Gdx.input.isTouched())
+            clicked = null;
+            oldMx = (int)mouseX;
+            oldMy = (int)mouseY;
+        }
+        else
+        {   
+            oldMx = (int)mouseX;
+            oldMy = (int)mouseY;
+            clicked=blackPieces[(int)(640-mouseY)/80][(int)mouseX/80];
+        }
+
+        if(!isFinished)
+            for(int r=0; r<board.length; r++)
+            {
+                for(int c = 0; c<board[0].length; c++)
+                {
+                    updateMouseLoc();
+
+                    if(blackPieces[r][c]!=null && Gdx.input.isTouched() 
+                    && Intersector.overlaps(mouseLoc,blackPieces[r][c]))
                     {
+                        System.out.println("If statement called");
+                        isFinished = true;
+                        System.out.println("Clicked");
                         clicked = blackPieces[r][c];
-                        clicked.set(mouseX, mouseY, 85);
 
-                        if(r+2<board.length && c+2<board[0].length &&
-                        whitePieces[r+1][c+1]!=null && blackPieces[r+2][c+2]==null)
-                        {
-                            board[r+2][c+2].changeColor(Color.YELLOW);
-                        }
-                        if(r+1<board.length && c+1<board[0].length &&
-                        whitePieces[r+1][c+1]==null && blackPieces[r+1][c+1]==null)
-                        {
-                            board[r+1][c+1].changeColor(Color.YELLOW);
-                        }
-                        if(r-2>board.length && c+2<board[0].length &&
-                        whitePieces[r-1][c+1]!=null && blackPieces[r+2][c+2]==null)
-                        {
-                            board[r-2][c+2].changeColor(Color.YELLOW);
-                        }
-                        if(r-1>board.length && c+1<board[0].length &&
-                        whitePieces[r-1][c+1]==null && blackPieces[r-1][c+1]==null)
-                        {
-                            board[r-1][c+1].changeColor(Color.YELLOW);
-                        }
-                    }
-        }
+                        break;
+                    } 
+                }
+                if(isFinished)
+                    break;
+            }
 
-        if((!Gdx.input.isTouched()) && board[(int)mouseX/80][(int)mouseY/80].equals(Color.YELLOW))
+        System.out.println("isFinished: "+isFinished);
+        if(isFinished)
         {
-            updateMouseLoc();
-            Circle temp = blackCircles[r][c];
-            blackPieces[r][c] = null;
-            blackCircles[r][c] = null;
-            blackPieces[(int)mouseY/80][(int)mouseX/80] = clicked;
-            blackCircles[(int)mouseY/80][(int)mouseX/80] = temp;
-            clicked.set(15+80*mouseX,WORLD_HEIGHT - 65 - mouseY*80,50);
-            if(whitePieces[(int)mouseX/80-1][(int)mouseY/80-1]!=null)
+            System.out.println("Finishing");
+            if(Gdx.input.isTouched() && clicked!=null)
             {
-                whitePieces[r-1][c-1]=null;
-                whiteCircles[r-1][c-1]=null;
+                updateMouseLoc();
+                System.out.println("Moving");
+                clicked.set(mouseX,mouseY,50);
             }
-            else if(whitePieces[(int)mouseX/80+1][(int)mouseY/80-1]!=null)
+            else
             {
-                whitePieces[r-1][c-1]=null;
-                whiteCircles[r-1][c-1]=null;
+                if(clicked!=null)
+                {
+                    updateMouseLoc();
+                    blackPieces[(int)(640-mouseY)/80][(int)mouseX/80]=clicked;               
+                    System.out.println("Set at " +(int)(640-mouseY)/80 + " " + (int)mouseX/80);
+                    isFinished = false;
+                    playerToggle++;
+                }
+                if(clicked ==null)
+                    clicked = new Pieces(mouseX,mouseY,images.get(8));
             }
         }
-
-        whiteLogic();
     }
 
     private void drawBoard()
@@ -410,7 +438,6 @@ extends ApplicationAdapter
                 if(whitePieces[r][c]!=null)
                 {
                     Pieces tempPiece = whitePieces[r][c];
-                    Circle tempCircle = whiteCircles[r][c];
                     batch.draw(tempPiece.getTexture(),
                         tempPiece.getX(), //x location depends on the column
                         tempPiece.getY(), //y location depends on the row
@@ -420,7 +447,7 @@ extends ApplicationAdapter
                 else if(blackPieces[r][c]!=null)
                 {
                     Pieces tempPiece = blackPieces[r][c];
-                    Circle tempCircle = blackCircles[r][c];
+
                     batch.draw(tempPiece.getTexture(),
                         tempPiece.getX(), //x location depends on the column
                         tempPiece.getY(), //y location depends on the row
@@ -431,10 +458,24 @@ extends ApplicationAdapter
         batch.end();
     }
 
+    private void resetBoard()
+    {
+        renderer.begin(ShapeType.Filled);
+        for(int r = 0; r<board.length; r++)
+            for(int c = 0; c<board[0].length; c++)
+                if(board[r][c].equals(Color.YELLOW))
+                    board[r][c].changeColor(Color.BLACK);
+
+        renderer.end();
+    }
+
     @Override
     public void resize(int width, int height)
     {  
         viewport.update(width, height, true);//API Link - https://javadoc.io/doc/com.badlogicgames.gdx/gdx/latest/index.html
     }
+}
+
+
 }
 
