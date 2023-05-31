@@ -51,7 +51,7 @@ extends ApplicationAdapter
     private int renderCtr;
     private int playerToggle; 
     private boolean isFinished;
-    
+
     private Pieces clicked;
 
     private SpriteBatch batch;
@@ -73,15 +73,17 @@ extends ApplicationAdapter
         layout = new GlyphLayout();
         font = new BitmapFont(); 
         images = new ArrayList<Texture>();
-        images.add(new Texture("PlayButtonSelected.gif"));
-        images.add(new Texture("PlayButtonUnselected.png"));
-        images.add(new Texture("MenuBG.gif"));
-        images.add(new Texture("RulesButtonUnselected.png"));
-        images.add(new Texture("RulesHighlighted.gif"));
-        images.add(new Texture("Checkers.png"));
-        images.add(new Texture("Rules.png"));
-        images.add(new Texture("WhiteChecker.png"));
-        images.add(new Texture("BlackChecker.png"));
+        images.add(new Texture("PlayButtonSelected.gif"));//0
+        images.add(new Texture("PlayButtonUnselected.png"));//1
+        images.add(new Texture("MenuBG.gif"));//2
+        images.add(new Texture("RulesButtonUnselected.png"));//3
+        images.add(new Texture("RulesHighlighted.gif"));//4
+        images.add(new Texture("Checkers.png"));//5
+        images.add(new Texture("Rules.png"));//6
+        images.add(new Texture("WhiteChecker.png"));//7
+        images.add(new Texture("BlackChecker.png"));//8
+        images.add(new Texture("BlackWin.png"));//9
+        images.add(new Texture("WhiteWin.png"));//10
         button1 = new Rectangle(WORLD_WIDTH/2 -images.get(0).getWidth()/2,//x loc
             (WORLD_HEIGHT/10)*6,//y loc
             images.get(0).getWidth(), images.get(0).getHeight());
@@ -117,16 +119,16 @@ extends ApplicationAdapter
             drawBoard();//draws checkerboard
             if(playerToggle%2==0)
             {     
-
-                whiteLogic();
-
+                whiteLogic();//logic for moving white pieces
             }
             else
             {
-
-                blackLogic();
-
+                blackLogic();//logic for moving black pieces
             }
+            if(checkWhitePieces())
+                gamestate=GameState.BLACKWIN;
+            if(checkBlackPieces())
+                gamestate=GameState.WHITEWIN;
         }
 
         if(Gdx.input.isKeyJustPressed(Keys.ESCAPE))
@@ -162,6 +164,10 @@ extends ApplicationAdapter
         if(gamestate == GameState.INSTRUCTIONS)
             drawInstructions();
 
+        if(gamestate == GameState.BLACKWIN)
+            drawBlackWin();
+        if(gamestate == GameState.WHITEWIN)
+            drawWhiteWin();
     }
 
     public void updateMouseLoc()
@@ -286,7 +292,7 @@ extends ApplicationAdapter
         {
             clicked = null;
         }
-
+        int oldR = -1;
         System.out.println("isFinished: "+isFinished);
         updateMouseLoc();
         if(!isFinished) 
@@ -301,6 +307,7 @@ extends ApplicationAdapter
                         isFinished = true;
                         System.out.println("Clicked");
                         clicked = whitePieces[r][c];
+                        oldR = r;
 
                         break;
                     } 
@@ -312,7 +319,6 @@ extends ApplicationAdapter
                     break;
                 }
             }
-        
 
         System.out.println("isFinished: "+isFinished);
         if(isFinished)
@@ -335,6 +341,8 @@ extends ApplicationAdapter
                     System.out.println("Set at " +(int)(640-mouseY)/80 + " " + (int)mouseX/80);
                     isFinished = false;
                     playerToggle++;
+                    checkWhitesCapture((int)(640-mouseY)/80, (int)mouseX/80, oldR);
+
                 }
                 if(clicked == null) {
                     // should not be called in an ideal situation
@@ -352,11 +360,11 @@ extends ApplicationAdapter
         {
             clicked = null;
         }
-        
-        updateMouseLoc();
 
+        updateMouseLoc();
+        int oldR = 0;
         if(!isFinished) 
-            
+
             for(int r=0; r<board.length; r++)
             {
                 for(int c = 0; c<board[0].length; c++)
@@ -368,14 +376,14 @@ extends ApplicationAdapter
                         isFinished = true;
                         System.out.println("Clicked");
                         clicked = blackPieces[r][c];
-
+                        oldR = r;
                         break;
                     } 
                 }
                 if(isFinished)
                     break;
             }
-        
+
         System.out.println("isFinished: "+isFinished);
         if(isFinished)
         {
@@ -396,11 +404,29 @@ extends ApplicationAdapter
                     System.out.println("Set at " +(int)(640-mouseY)/80 + " " + (int)mouseX/80);
                     isFinished = false;
                     playerToggle++;
+                    checkBlacksCapture((int)(640-mouseY)/80, (int)mouseX/80,oldR);
+
                 }
                 if(clicked ==null)
                     clicked = new Pieces(mouseX,mouseY,images.get(8));
             }
         }
+    }
+
+    private void checkWhitesCapture(int r, int c, int r0)
+    {
+        if(r0-1>=0 && r-r0<0 && blackPieces[r-1][c+1]!=null)
+            blackPieces[r-1][c+1]=null;
+        else if(r+1<board.length && r-r0>0 && blackPieces[r+1][c+1]!=null)
+            blackPieces[r+1][c+1]=null;
+    }
+
+    private void checkBlacksCapture(int r, int c, int r0)
+    {
+        if(r0-1>=0 && r-r0<0 && whitePieces[r-1][c-1]!=null)
+            whitePieces[r-1][c-1]=null;
+        else if(r+1<board.length && r-r0>0 && whitePieces[r+1][c-1]!=null)
+            whitePieces[r+1][c-1]=null;
     }
 
     private void drawBoard()
@@ -446,15 +472,38 @@ extends ApplicationAdapter
         batch.end();
     }
 
-    private void resetBoard()
+    private boolean checkWhitePieces()
     {
-        renderer.begin(ShapeType.Filled);
-        for(int r = 0; r<board.length; r++)
-            for(int c = 0; c<board[0].length; c++)
-                if(board[r][c].equals(Color.YELLOW))
-                    board[r][c].changeColor(Color.BLACK);
+        for(int r = 0; r<whitePieces.length; r++)
+            for(int c = 0; c<whitePieces[r].length; c++)
+                if(whitePieces[r][c]!=null)
+                    return false;
 
-        renderer.end();
+        return true;
+    }
+
+    private boolean checkBlackPieces()
+    {
+        for(int r = 0; r<blackPieces.length; r++)
+            for(int c = 0; c<blackPieces[r].length; c++)
+                if(blackPieces[r][c]!=null)
+                    return false;
+
+        return true;
+    }
+
+    private void drawBlackWin()
+    {
+        batch.begin();
+        batch.draw(images.get(9),0,0,640,640);
+        batch.end();
+    }
+
+    private void drawWhiteWin()
+    {
+        batch.begin();
+        batch.draw(images.get(10),0,0,640,640);
+        batch.end();
     }
 
     @Override
