@@ -51,6 +51,8 @@ extends ApplicationAdapter
     private int renderCtr;
     private int playerToggle; 
     private boolean isFinished;
+    
+    private Pieces clicked;
 
     private SpriteBatch batch;
     private GlyphLayout layout; 
@@ -60,7 +62,8 @@ extends ApplicationAdapter
 
     @Override//called once when we start the game
     public void create(){
-        Gdx.graphics.setContinuousRendering(false);
+        // idk what this is but it seems damaging please comment out if im wrong
+        //Gdx.graphics.setContinuousRendering(false);
 
         camera = new OrthographicCamera(); 
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera); 
@@ -99,7 +102,8 @@ extends ApplicationAdapter
         playerToggle = 0;
         isFinished =false;
 
-        gamestate = GameState.MENU;        
+        gamestate = GameState.MENU; 
+        clicked = null;
     }
 
     @Override//called 60 times a second
@@ -278,30 +282,18 @@ extends ApplicationAdapter
     public void whiteLogic()
     {
         System.out.println("WhiteLogic Called");
-        Pieces clicked;
-        int oldMx;
-        int oldMy;
         if(isFinished==false)
         {
             clicked = null;
-            oldMx = (int)mouseX;
-            oldMy = (int)mouseY;
-        }
-        else
-        {
-            clicked=whitePieces[(int)(640-mouseY)/80][(int)mouseX/80];
-            oldMx = (int)mouseX;
-            oldMy = (int)mouseY;
         }
 
         System.out.println("isFinished: "+isFinished);
-        if(!isFinished)
+        updateMouseLoc();
+        if(!isFinished) 
             for(int r=0; r<board.length; r++)
             {
                 for(int c = 0; c<board[0].length; c++)
                 {
-                    updateMouseLoc();
-
                     if(whitePieces[r][c]!=null && Gdx.input.isTouched() &&
                     Intersector.overlaps(mouseLoc,whitePieces[r][c]))
                     {
@@ -313,12 +305,14 @@ extends ApplicationAdapter
                         break;
                     } 
                 }
+                System.out.println();
                 if(isFinished)
                 {
                     System.out.println("If statement finished");
                     break;
                 }
             }
+        
 
         System.out.println("isFinished: "+isFinished);
         if(isFinished)
@@ -336,13 +330,16 @@ extends ApplicationAdapter
                 if(clicked!=null)
                 {
                     updateMouseLoc();
-                    whitePieces[(int)(640-mouseY)/80][(int)mouseX/80]=clicked;               
+                    whitePieces[(int)(640-mouseY)/80][(int)mouseX/80]=clicked;
+                    clicked.set(((int)mouseX/80) * 80 + 15, (board.length - 1) * 80 - 80 * ((int)(640-mouseY)/80) + 15, 50);
                     System.out.println("Set at " +(int)(640-mouseY)/80 + " " + (int)mouseX/80);
                     isFinished = false;
                     playerToggle++;
                 }
-                if(clicked ==null)
+                if(clicked == null) {
+                    // should not be called in an ideal situation
                     clicked = new Pieces(mouseX,mouseY,images.get(7));
+                }
             }
         }
 
@@ -351,29 +348,19 @@ extends ApplicationAdapter
     public void blackLogic()
     {
         System.out.println("BlackLogic Called");
-        Pieces clicked;
-        int oldMx;
-        int oldMy;
         if(isFinished==false)
         {
             clicked = null;
-            oldMx = (int)mouseX;
-            oldMy = (int)mouseY;
         }
-        else
-        {   
-            oldMx = (int)mouseX;
-            oldMy = (int)mouseY;
-            clicked=blackPieces[(int)(640-mouseY)/80][(int)mouseX/80];
-        }
+        
+        updateMouseLoc();
 
-        if(!isFinished)
+        if(!isFinished) 
+            
             for(int r=0; r<board.length; r++)
             {
                 for(int c = 0; c<board[0].length; c++)
                 {
-                    updateMouseLoc();
-
                     if(blackPieces[r][c]!=null && Gdx.input.isTouched() 
                     && Intersector.overlaps(mouseLoc,blackPieces[r][c]))
                     {
@@ -388,7 +375,7 @@ extends ApplicationAdapter
                 if(isFinished)
                     break;
             }
-
+        
         System.out.println("isFinished: "+isFinished);
         if(isFinished)
         {
@@ -404,7 +391,8 @@ extends ApplicationAdapter
                 if(clicked!=null)
                 {
                     updateMouseLoc();
-                    blackPieces[(int)(640-mouseY)/80][(int)mouseX/80]=clicked;               
+                    blackPieces[(int)(640-mouseY)/80][(int)mouseX/80]=clicked;
+                    clicked.set(((int)mouseX/80) * 80 + 15, (board.length - 1) * 80 - 80 * ((int)(640-mouseY)/80) + 15, 50);
                     System.out.println("Set at " +(int)(640-mouseY)/80 + " " + (int)mouseX/80);
                     isFinished = false;
                     playerToggle++;
